@@ -14,3 +14,5 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 ADD_DEFINITIONS(-D_XFEATURES)
 
 ADD_EXECUTABLE(visual_librarian visual_librarian.cpp features.cpp utilities.cpp)
+
+FILE(COPY img DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
