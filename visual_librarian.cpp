@@ -31,7 +31,7 @@ bool compare_matches(DMatch first, DMatch second) {
 	return (first.distance < second.distance);
 }
 
-int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int actualIdx) {
+int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int actualIdx) { // DELETE ME {actualIdx}
 	double stopwatch_start = (double)getTickCount(); // start the stopwatch
 
 	Mat frame = scale_frame(book_test_rgb);
@@ -247,39 +247,113 @@ Mat capture_a_book(String phone_ip, String test_book_filename) {
 	return test_img(crop_area);
 }
 
+vector<String> users = {
+	"Ana Novak",
+	"Marija Hrovat",
+	"Janez Kranjc",
+	"Marko Mlakar",
+	"Maja Kos"
+};
+int select_user() {
+	Mat background = imread(join("img","bkg.jpg"));
+	Mat frame = scale_frame(background);
+	putText(frame, "Visual Librarian", Point(20, 150), FONT_HERSHEY_SIMPLEX, 2.8, Scalar(0, 255, 0, 0), 5);
+	rectangle(frame, Rect(40, 250, 400, 80 + users.size()*50), Scalar(255, 255, 255, 0), CV_FILLED);
+	putText(frame, "Select user:", Point(50, 300), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 255, 0, 0), 2);
+	int offset_y = 300;
+
+	int max_text_width = 0;
+	for (size_t i = 0; i < users.size(); i++) {
+		offset_y += 50;
+
+		String text = format("%d - %s", i, users[i].c_str());
+		int fontFace = FONT_HERSHEY_SIMPLEX;
+		double fontScale = 1;
+		int thickness = 2;
+		int baseline = 0;
+
+		putText(frame, text, Point(50, offset_y), fontFace, fontScale, Scalar(255, 0, 0, 0), thickness);
+		Size textSize = getTextSize(text, fontFace,	fontScale, thickness, &baseline);
+		if (max_text_width < textSize.width)
+			max_text_width = textSize.width;
+	}
+
+	imshow(WINDOW_NAME, frame);
+
+	int user_id = -1;
+	while (char key = waitKey(0)) {
+		user_id = key - '0';
+		if (user_id >= 0 && user_id < users.size())
+			break;
+	}
+	return user_id;
+}
+
 
 int main(int argc, char** argv) {
 	if (argc < 4) {
 		cerr << "** Error. Usage: ./visual_librarian <books_folder> <number_of_books>\n";
 		throw;
 	}
-	
-	String phone_ip = "http://192.168.43.1:8080";
-	String test_book_filename = "test.jpg";
 
-	Mat book_test_rgb = capture_a_book(phone_ip, test_book_filename);
+	while (true) {
+		int user_id = select_user();
 
-	imshow(WINDOW_NAME, scale_frame(book_test_rgb));
-	waitKey(30);
-	
-	/*
-	for (size_t i = 1; i <= 81; i++) {
-		Mat src_base = imread(format("C:\\Users\\Anze\\Box Sync\\FRI\\vid\\project\\zbirka1\\auto_all renamed+resized_only1_testing\\%03d.jpg", i));
+		
+		String phone_ip = "http://192.168.43.1:8080";
+		String test_book_filename = "test.jpg";
 
-		if (src_base.empty()) {
-			cerr << "src_base is EMPTY\n" ;
-			throw;
+		Mat book_test_rgb = capture_a_book(phone_ip, test_book_filename);
+
+		imshow(WINDOW_NAME, scale_frame(book_test_rgb));
+		waitKey(30);
+		
+		/*
+		for (size_t i = 1; i <= 81; i++) {
+			Mat src_base = imread(format("C:\\Users\\Anze\\Box Sync\\FRI\\vid\\project\\zbirka1\\auto_all renamed+resized_only1_testing\\%03d.jpg", i));
+
+			if (src_base.empty()) {
+				cerr << "src_base is EMPTY\n";
+				throw;
+			}
+
+			find_the_book(argv[1], stoi(argv[2]), src_base, i);
 		}
+		*/
+		
+		int book_detected_index = find_the_book(argv[1], stoi(argv[2]), book_test_rgb, -1);
 
-		find_the_book(argv[1], stoi(argv[2]), src_base, i);
+		Mat frame = scale_frame(book_test_rgb);
+		putText(frame, format("Detected book: %d", book_detected_index), Point(10, 50), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 2);
+		putText(frame, "o - OK",     Point(10, 100), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 255, 0, 0), 2);
+		putText(frame, "c - CANCEL", Point(10, 150), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 255, 0), 2);
+		imshow(WINDOW_NAME, frame);
+		char key = 0;
+		while (key = waitKey(0)) {
+			if (key == 'o' || key == 'c')
+				break;
+		}
+		if (key == 'c')
+			continue;
+		
+		
+		frame = scale_frame(book_test_rgb);
+		putText(frame, users[user_id],                     Point(10, 50), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 2);
+		putText(frame, "borrowed",                        Point(10, 100), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 2);
+		putText(frame, format("%d", book_detected_index), Point(10, 150), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 2);
+
+		putText(frame, "Do you want to scan another book?", Point(10, 250), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 0, 0, 0), 2);
+		putText(frame, "y - YES", Point(10, 300), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 255, 0, 0), 2);
+		putText(frame, "n - NO",  Point(10, 350), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 255, 0), 2);
+		imshow(WINDOW_NAME, frame);
+		key = 0;
+		while (key = waitKey(0)) {
+			if (key == 'y' || key == 'n')
+				break;
+		}
+		if (key == 'n')
+			break;
+				
 	}
-	*/
-
-	int book_detected_index = find_the_book(argv[1], stoi(argv[2]), book_test_rgb, -1);
-	Mat frame = scale_frame(book_test_rgb);
-	putText(frame, format("Detected book: %d", book_detected_index), Point(10, 50), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 2);
-	imshow(WINDOW_NAME, frame);
-	waitKey(0);
-
 	return 0;
 }
