@@ -16,8 +16,11 @@
 using namespace std;
 using namespace cv;
 
+#define WINDOW_NAME "Visual Librarian"
+#define WINDOW_HEIGHT 960.0
+
 Mat scale_frame(Mat frame) {
-	double scaled_frame_factor = 960.0 / frame.rows;
+	double scaled_frame_factor = WINDOW_HEIGHT / frame.rows;
 
 	Mat scaled_frame;
 	resize(frame, scaled_frame, Size(0,0), scaled_frame_factor, scaled_frame_factor, INTER_LINEAR);
@@ -28,8 +31,12 @@ bool compare_matches(DMatch first, DMatch second) {
 	return (first.distance < second.distance);
 }
 
-void find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int actualIdx) {
+int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int actualIdx) {
 	double stopwatch_start = (double)getTickCount(); // start the stopwatch
+
+	Mat frame = scale_frame(book_test_rgb);
+	imshow(WINDOW_NAME, frame);
+	waitKey(30);
 
 	Mat book_test_hsv, book_test_gs;
 	cvtColor(book_test_rgb, book_test_hsv, COLOR_BGR2HSV); // convert to HSV
@@ -90,6 +97,11 @@ void find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int
 
 		// HOMOGRAPHY
 		homography_count++; // number of books that were compared with homography
+
+		Mat frame_copy = frame.clone();
+		putText(frame_copy, "analyzing"+String((homography_count%5)+1,'.'), Point(60, frame_copy.rows/2), FONT_HERSHEY_SIMPLEX, 2.5, Scalar(0, 255, 0, 0), 3);
+		imshow(WINDOW_NAME, scale_frame(frame_copy));
+		waitKey(30);
 
 		Mat book_check_descriptors;
 		vector<KeyPoint> book_check_keypoints;
@@ -158,6 +170,8 @@ void find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int
 	// DELETE ME
 	String result = (actualIdx == best_match_index) ? "----ok" : format("ER-%3d", actualIdx);
 	cout << result << " in " << format("%5.2f seconds", time_seconds) << format("   compared: %2d images", homography_count) << endl;
+
+	return best_match_index;
 }
 
 
@@ -167,7 +181,6 @@ size_t write_data(void *ptr, size_t size, size_t nmemb, FILE *stream) {
 }
 
 Mat capture_a_book(String phone_ip, String test_book_filename) {
-	String window_name = "Camera";
 	VideoCapture camera(phone_ip + "/video");
 
 	if (!camera.isOpened()) {
@@ -175,12 +188,11 @@ Mat capture_a_book(String phone_ip, String test_book_filename) {
 		throw;
 	}
 
-	float video_width = 640;
-	float photo_width = 2880;
-	float scaling_factor = video_width / photo_width;
+	float photo_height = 2880;
+	float scaling_factor = WINDOW_HEIGHT / photo_height;
 	Mat frame;
 
-	Rect crop_area(1000, 300, 1000, 1414);
+	Rect crop_area(600, 700, 1000, 1400);
 	Rect crop_area_scaled(
 		crop_area.x * scaling_factor,
 		crop_area.y * scaling_factor,
@@ -190,13 +202,15 @@ Mat capture_a_book(String phone_ip, String test_book_filename) {
 
 	while (true) {
 		camera.read(frame);
+		frame = scale_frame(frame);
+		putText(frame, "press space to capture", Point(10,50), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 2);
 		rectangle(frame, crop_area_scaled, Scalar(0, 255, 0, 0), 3); // draw a rectangle where the book has to be
-		imshow(window_name, scale_frame(frame));
+		imshow(WINDOW_NAME, frame);
 
 		char key = waitKey(30);
 		if (key == ' ') {// save the photo as {test_book_filename}
-			putText(frame, "saving...", Point(crop_area_scaled.x + 10, crop_area_scaled.y + crop_area_scaled.height/2), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(0, 255, 0, 0), 2);
-			imshow(window_name, scale_frame(frame));
+			putText(frame, "saving...", Point(crop_area_scaled.x + 30, crop_area_scaled.y + crop_area_scaled.height/2), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(0, 0, 255, 0), 2);
+			imshow(WINDOW_NAME, scale_frame(frame));
 			waitKey(30);
 
 			CURL* curl = curl_easy_init();
@@ -218,13 +232,18 @@ Mat capture_a_book(String phone_ip, String test_book_filename) {
 
 			curl_easy_cleanup(curl);
 			fclose(fp);
-			destroyWindow(window_name);
 
 			break;
 		}
 	}
 
 	Mat test_img = imread(test_book_filename);
+
+	// rotate test_img right
+	Mat temp;
+	transpose(test_img, temp);
+	flip(temp, test_img, 1);
+
 	return test_img(crop_area);
 }
 
@@ -234,16 +253,16 @@ int main(int argc, char** argv) {
 		cerr << "** Error. Usage: ./visual_librarian <books_folder> <number_of_books>\n";
 		throw;
 	}
-	/*
+	
 	String phone_ip = "http://192.168.43.1:8080";
 	String test_book_filename = "test.jpg";
 
 	Mat book_test_rgb = capture_a_book(phone_ip, test_book_filename);
-	
-	imshow("book_test_rgb", scale_frame(book_test_rgb));
-	waitKey(30);
-	*/
 
+	imshow(WINDOW_NAME, scale_frame(book_test_rgb));
+	waitKey(30);
+	
+	/*
 	for (size_t i = 1; i <= 81; i++) {
 		Mat src_base = imread(format("C:\\Users\\Anze\\Box Sync\\FRI\\vid\\project\\zbirka1\\auto_all renamed+resized_only1_testing\\%03d.jpg", i));
 
@@ -254,8 +273,13 @@ int main(int argc, char** argv) {
 
 		find_the_book(argv[1], stoi(argv[2]), src_base, i);
 	}
+	*/
 
-	//find_the_book(argv[1], stoi(argv[2]), book_test_rgb);
+	int book_detected_index = find_the_book(argv[1], stoi(argv[2]), book_test_rgb, -1);
+	Mat frame = scale_frame(book_test_rgb);
+	putText(frame, format("Detected book: %d", book_detected_index), Point(10, 50), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 2);
+	imshow(WINDOW_NAME, frame);
+	waitKey(0);
 
 	return 0;
 }
