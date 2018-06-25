@@ -20,6 +20,18 @@ using namespace cv;
 #define WINDOW_HEIGHT 960.0
 //#define MAKE_YAML
 
+
+
+vector<String> users = {
+	"Ana Novak",
+	"Marija Hrovat",
+	"Janez Kranjc",
+	"Marko Mlakar",
+	"Maja Kos"
+};
+
+
+
 Mat scale_frame(Mat frame) {
 	double scaled_frame_factor = WINDOW_HEIGHT / frame.rows;
 
@@ -28,9 +40,11 @@ Mat scale_frame(Mat frame) {
 	return scaled_frame;
 }
 
+
 bool compare_matches(DMatch first, DMatch second) {
 	return (first.distance < second.distance);
 }
+
 
 int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int actualIdx) { // DELETE ME {actualIdx}
 	double stopwatch_start = (double)getTickCount(); // start the stopwatch
@@ -93,9 +107,11 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 		if (i == actualIdx)
 			cout << hist_diff << endl;
 		*/
+		//cout << i << ": " << hist_diff << endl;
+
 		#ifndef MAKE_YAML
-		// only compare books with histogram difference 0.5 or less
-		if (hist_diff > 0.5) {
+		// only compare books with histogram difference 0.65 or less
+		if (hist_diff > 0.65) {
 			continue;
 		}
 		#endif
@@ -158,7 +174,7 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 			if (homography_inliers[i] == 1)
 				homography_inliers_count++;
 		}
-
+		
 		// check if it is a better match
 		if (homography_inliers_count > max_inliers) {
 			best_match_index = i;
@@ -189,7 +205,7 @@ size_t write_data(void *ptr, size_t size, size_t nmemb, FILE *stream) {
 	return written;
 }
 
-Mat capture_a_book(String phone_ip, String test_book_filename) {
+Mat capture_a_book(String phone_ip, String test_book_filename, int user_id) {
 	VideoCapture camera(phone_ip + "/video");
 
 	if (!camera.isOpened()) {
@@ -201,7 +217,7 @@ Mat capture_a_book(String phone_ip, String test_book_filename) {
 	float scaling_factor = WINDOW_HEIGHT / photo_height;
 	Mat frame;
 
-	Rect crop_area(600, 700, 1000, 1400);
+	Rect crop_area(800, 1000, 728, 1000);
 	Rect crop_area_scaled(
 		crop_area.x * scaling_factor,
 		crop_area.y * scaling_factor,
@@ -212,7 +228,8 @@ Mat capture_a_book(String phone_ip, String test_book_filename) {
 	while (true) {
 		camera.read(frame);
 		frame = scale_frame(frame);
-		putText(frame, "press space to capture", Point(10,50), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 2);
+		putText(frame, "press space to capture", Point(50,50), FONT_HERSHEY_SIMPLEX, 1.5, Scalar(255, 0, 0, 0), 2);
+		putText(frame, format("user: %s", users[user_id].c_str()), Point(50,(int)WINDOW_HEIGHT-50), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 0, 0, 0), 2);
 		rectangle(frame, crop_area_scaled, Scalar(0, 255, 0, 0), 3); // draw a rectangle where the book has to be
 		imshow(WINDOW_NAME, frame);
 
@@ -253,16 +270,16 @@ Mat capture_a_book(String phone_ip, String test_book_filename) {
 	transpose(test_img, temp);
 	flip(temp, test_img, 1);
 
-	return test_img(crop_area);
+	
+	Mat test_img_cropped_and_scaled;
+	resize(test_img(crop_area), test_img_cropped_and_scaled, Size(364, 500), 0, 0, INTER_LINEAR);
+	return test_img_cropped_and_scaled;
+	
+
+	//return test_img(crop_area);
 }
 
-vector<String> users = {
-	"Ana Novak",
-	"Marija Hrovat",
-	"Janez Kranjc",
-	"Marko Mlakar",
-	"Maja Kos"
-};
+
 int select_user() {
 	Mat background = imread(join("img","bkg.jpg"));
 	Mat frame = scale_frame(background);
@@ -306,18 +323,18 @@ int main(int argc, char** argv) {
 	}
 
 	while (true) {
-		/*
+		
 		int user_id = select_user();
 		
 		String phone_ip = "http://192.168.43.1:8080";
 		String test_book_filename = "test.jpg";
 
-		Mat book_test_rgb = capture_a_book(phone_ip, test_book_filename);
+		Mat book_test_rgb = capture_a_book(phone_ip, test_book_filename, user_id);
 
 		imshow(WINDOW_NAME, scale_frame(book_test_rgb));
 		waitKey(30);
-		*/
-
+		
+		/*
 		// FOR TESTING FURPOSES ONLY
 		for (size_t i = 1; i <= stoi(argv[2]); i++) {
 			Mat src_base = imread(format("C:\\Users\\Anze\\Box Sync\\FRI\\vid\\project\\zbirka2\\cropped_rotated_60_500px_3\\%03d.jpg", i));
@@ -330,8 +347,8 @@ int main(int argc, char** argv) {
 			find_the_book(argv[1], stoi(argv[2]), src_base, i);
 		}
 		break;
+		*/
 		
-		/*
 		int book_detected_index = find_the_book(argv[1], stoi(argv[2]), book_test_rgb, -1);
 
 		Mat frame = scale_frame(book_test_rgb);
@@ -364,7 +381,7 @@ int main(int argc, char** argv) {
 		}
 		if (key == 'n')
 			break;
-		*/
+		
 	}
 	return 0;
 }
