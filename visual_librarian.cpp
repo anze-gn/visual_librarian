@@ -44,6 +44,9 @@ Mat scale_frame(Mat frame) {
 bool compare_matches(DMatch first, DMatch second) {
 	return (first.distance < second.distance);
 }
+bool compare_histograms(vector<double> histogram_diffs_vector1, vector<double> histogram_diffs_vector2) {
+	return (histogram_diffs_vector1[1] < histogram_diffs_vector2[1]);
+}
 
 
 int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int actualIdx) { // DELETE ME {actualIdx}
@@ -71,56 +74,62 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 	calcHist(&book_test_hsv, 1, channels, Mat(), book_test_hist, 2, histSize, ranges, true, false);
 	normalize(book_test_hist, book_test_hist, 0, 1, NORM_MINMAX, -1, Mat());
 
-	// HOMOGRAPHY
-	Mat book_test_descriptors;
-	vector<KeyPoint> book_test_keypoints;
-	Ptr<Feature2D> descriptor = get_descriptor(FEATURES_SIFT);
-	descriptor->detectAndCompute(book_test_gs, Mat(), book_test_keypoints, book_test_descriptors);
-	int max_matches_to_use = 50;
-
-	int max_inliers = 0;
-	int best_match_index = -1;
-	int homography_count = 0; // number of books that were compared with homography
+	// compare all histograms
+	vector<vector<double>> histogram_diffs;
 	for (size_t i = 1; i <= num_of_books; i++) {
-		Mat book_compare_rgb = imread( join(books_folder, format("%03d.jpg", i)) );
+		Mat book_compare_rgb = imread(join(books_folder, format("%03d.jpg", i)));
 		if (book_compare_rgb.empty()) {
 			cerr << "book_compare_rgb is EMPTY\n";
 			throw;
 		}
 
-		Mat book_compare_hsv, book_compare_gs;
+		Mat book_compare_hsv;
 		cvtColor(book_compare_rgb, book_compare_hsv, COLOR_BGR2HSV); // convert to HSV
-		#ifdef MAKE_YAML
-			cvtColor(book_compare_rgb, book_compare_gs, COLOR_BGR2GRAY); // convert to GRAYSCALE
-		#endif
-		
+
 		// calculate the histograms for the book_compare_hsv
 		Mat book_compare_hist;
 		calcHist(&book_compare_hsv, 1, channels, Mat(), book_compare_hist, 2, histSize, ranges, true, false);
 		normalize(book_compare_hist, book_compare_hist, 0, 1, NORM_MINMAX, -1, Mat());
 
 		// compare histograms book_test_hist and book_compare_hist
-		double hist_diff = compareHist(book_test_hist, book_compare_hist, CV_COMP_HELLINGER);
-		
-		// DELETE ME
-		/*
-		if (i == actualIdx)
-			cout << hist_diff << endl;
-		*/
-		//cout << i << ": " << hist_diff << endl;
+		double hist_diff =  compareHist(book_test_hist, book_compare_hist, CV_COMP_HELLINGER);
 
-		#ifndef MAKE_YAML
-		// only compare books with histogram difference 0.65 or less
-		if (hist_diff > 0.65) {
-			continue;
-		}
+		vector<double> histogram_diffs_vector;
+		histogram_diffs_vector.push_back(i);
+		histogram_diffs_vector.push_back(hist_diff);
+		histogram_diffs.push_back(histogram_diffs_vector);
+	}
+
+	sort(histogram_diffs.begin(), histogram_diffs.end(), compare_histograms);
+
+	// HOMOGRAPHY
+	Mat book_test_descriptors;
+	vector<KeyPoint> book_test_keypoints;
+	Ptr<Feature2D> descriptor = get_descriptor(FEATURES_SIFT);
+	descriptor->detectAndCompute(book_test_gs, Mat(), book_test_keypoints, book_test_descriptors);
+	int max_matches_to_use = 100;
+	int max_histograms_to_use = 5;
+	#ifdef MAKE_YAML
+		max_histograms_to_use = num_of_books;
+	#endif
+
+	int max_inliers = 0;
+	int best_match_index = -1;
+	for (size_t i = 0; i < max_histograms_to_use; i++) {
+		#ifdef MAKE_YAML
+			Mat book_compare_rgb = imread(join(books_folder, format("%03d.jpg", i+1)));
+			if (book_compare_rgb.empty()) {
+				cerr << "book_compare_rgb is EMPTY\n";
+				throw;
+			}
+
+			Mat book_compare_gs;
+			cvtColor(book_compare_rgb, book_compare_gs, COLOR_BGR2GRAY); // convert to GRAYSCALE
 		#endif
 		
-		// HOMOGRAPHY
-		homography_count++; // number of books that were compared with homography
 
 		Mat frame_copy = frame.clone();
-		putText(frame_copy, "analyzing"+String((homography_count%5)+1,'.'), Point(60, frame_copy.rows/2), FONT_HERSHEY_SIMPLEX, 2.5, Scalar(0, 255, 0, 0), 3);
+		putText(frame_copy, "analyzing"+String((i%5)+1,'.'), Point(60, frame_copy.rows/2), FONT_HERSHEY_SIMPLEX, 2.5, Scalar(0, 255, 0, 0), 3);
 		imshow(WINDOW_NAME, frame_copy);
 		waitKey(30);
 
@@ -132,15 +141,14 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 		#ifdef MAKE_YAML
 			descriptor->detectAndCompute(book_compare_gs, Mat(), book_check_keypoints, book_check_descriptors); // detect and compute book_check_keypoints and book_check_descriptors
 		
-			// save book_check_keypoints and book_check_descriptors to {i}.yaml
-			// to use this code, you must comment out "if (hist_diff > 0.5)"
-			FileStorage fs(join(books_folder, format("%03d.yaml", i)), FileStorage::WRITE);
+			// save book_check_keypoints and book_check_descriptors to {i+1}.yaml
+			FileStorage fs(join(books_folder, format("%03d.yaml", i+1)), FileStorage::WRITE);
 			fs << "book_check_keypoints" << book_check_keypoints;
 			fs << "book_check_descriptors" << book_check_descriptors;
 			fs.release();
 		#else
-			// use book_check_keypoints and book_check_descriptors from {i}.yaml
-			FileStorage fs(join(books_folder, format("%03d.yaml", i)), FileStorage::READ);
+			// use book_check_keypoints and book_check_descriptors from .yaml file
+			FileStorage fs(join(books_folder, format("%03d.yaml", (int)histogram_diffs[i][0])), FileStorage::READ);
 			fs["book_check_keypoints"] >> book_check_keypoints;
 			fs["book_check_descriptors"] >> book_check_descriptors;
 			fs.release();
@@ -177,19 +185,15 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 		
 		// check if it is a better match
 		if (homography_inliers_count > max_inliers) {
-			best_match_index = i;
+			best_match_index = (int)histogram_diffs[i][0];
 			max_inliers = homography_inliers_count;
 		}
 
-		//cout << format("Book %02d: hist_diff:%6.5f   homography_inliers_count:%5d", i, hist_diff, homography_inliers_count) << endl;
 	}
 
 	double time_seconds = ((double)getTickCount() - stopwatch_start) / getTickFrequency();
-	//cout << format("Best match: %d  (in %5.2f seconds)", best_match_index, time_seconds) << endl;
-
-	// DELETE ME
 	String result = (actualIdx == best_match_index) ? "----ok" : format("ER-%3d", actualIdx);
-	cout << result << " in " << format("%5.2f seconds", time_seconds) << format("   compared: %2d images", homography_count) << endl;
+	cout << result << " in " << format("%5.2f seconds", time_seconds) << format("   compared: %2d images", max_histograms_to_use) << endl;
 
 	#ifdef MAKE_YAML
 		cerr << "Generating .yaml files done.\n";
