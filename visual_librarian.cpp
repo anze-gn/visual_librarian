@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <iostream>
 #include <algorithm>
+#include <fstream>
+#include <ctime>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/features2d.hpp>
@@ -30,6 +32,69 @@ vector<String> users = {
 	"Maja Kos"
 };
 
+vector<vector<String>> books_titles = {
+	{ "Book not recognized", "Book not recognized" },
+	{ "momento humori", "Daj nam danes nas vsakdanji vic …" },
+	{ "momento humori", "Smeh v solskih klopeh" },
+	{ "momento humori", "Brez dela ni jela" },
+	{ "momento humori", "Zadrege zakonske vprege" },
+	{ "momento humori", "Oh, ti nasi ljubi otroci" },
+	{ "Vici o lovcih", "Smeh na lovskih poteh" },
+	{ "Vici", "Vicev na racun policije ni! Vse je res." },
+	{ "Ivan Kusan", "Domaca naloga" },
+	{ "Fran S. Finzgar", "Student naj bo - na petelina" },
+	{ "Josip Jurcic", "Spomini na deda in druge zgodbe" },
+	{ "Zdenka Bezdekova", "Klicali so me Leni" },
+	{ "Francesca Simon", "Grozni Gasper ima usi" },
+	{ "Francesca Simon", "Grozni Gasper - Gomazeca golazen" },
+	{ "Astrid Lindgren", "Erazem in potepuh" },
+	{ "Janez Menart", "Pesnik se predstavi" },
+	{ "Izbrana mladinska beseda", "Josip Stritar" },
+	{ "Izbrana mladinska beseda", "Matija Valjavec" },
+	{ "Izbrana mladinska beseda", "Venceslav Winkler" },
+	{ "Izbrana mladinska beseda", "Misko Kranjec" },
+	{ "Fran Milcinski", "Butalci" },
+	{ "Rudyard Kipling", "Knjiga o dzungli" },
+	{ "Joze Javorsek", "Primoz Trubar" },
+	{ "A. S. Puskin", "Pesmi - Dve pravljici" },
+	{ "Srecko Kosovel", "Izbrane pesmi" },
+	{ "Leland Stowe", "Robinzon s samotnega jezera" },
+	{ "Erazem Rotterdamski", "Hvalnica norosti" },
+	{ "Milan Pugelj", "O nekoristnih ljudeh" },
+	{ "Srecko Kosovel", "Pesmi in konstrukcije" },
+	{ "Anton Vodnik", "Glas tisine" },
+	{ "Friedrich Schiller", "Marija Stuart" },
+	{ "Bernard Shaw", "Hudicev ucenec" },
+	{ "Operni besedili", "Seviljski brivec, Carmen" },
+	{ "Njegos", "Gorski vijenac, Mazuranic - Smrt Smail age Cengijica" },
+	{ "Simon Gregorcic", "Poezije" },
+	{ "Desa Muck", "Blazno resno o soli" },
+	{ "Boris A. Novak", "Bla Bla" },
+	{ "Karel Destovnik Kajuh", "Moja pesem" },
+	{ "Anica Cernejeva", "Metuljcki" },
+	{ "Tone Seliskar", "Mule in liscki" },
+	{ "Carlo Collodi", "Ostrzek" },
+	{ "Josip Vandot", "Kekec nad samotnim breznom" },
+	{ "Janez Jalen", "Bobri I" },
+	{ "Antonio Skarmeta", "Nic hudega" },
+	{ "James M. Barrie", "Peter Pan" },
+	{ "Marjan Raztresen", "Kruta gora" },
+	{ "Igor Torkar", "Zlatoustova pratika" },
+	{ "Marko Terseglav", "Klincek lesnikov" },
+	{ "Dragan Stefanovic", "Poljsko poletje 1980" },
+	{ "Marjan Moskric", "Pri nas je vse v redu" },
+	{ "Morris West", "Hudicev advokat" },
+	{ "Filip Radulovic", "Umazana sled" },
+	{ "Paul Herrmann", "Davno pred Kolumbom 1" },
+	{ "Paul Herrmann", "Davno pred Kolumbom 2" },
+	{ "Ciril Kosmac", "Pomladni dan" },
+	{ "Misko Kranjec", "Lepa Vida Prekmurska" },
+	{ "Slikanica", "Veverica in prijatelji" },
+	{ "Slikanica", "Muhasti koder - Snedeni dodo" },
+	{ "Slikanica", "Palcki gredo na izlet" },
+	{ "Slikanica", "Pepelka" },
+	{ "Turisticni atlas", "Slovenija" }
+};
 
 
 Mat scale_frame(Mat frame) {
@@ -49,7 +114,7 @@ bool compare_histograms(vector<double> histogram_diffs_vector1, vector<double> h
 }
 
 
-int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int actualIdx) { // DELETE ME {actualIdx}
+int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb) {
 	double stopwatch_start = (double)getTickCount(); // start the stopwatch
 
 	Mat frame = scale_frame(book_test_rgb);
@@ -114,7 +179,7 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 	#endif
 
 	int max_inliers = 0;
-	int best_match_index = -1;
+	int best_match_index = 0;
 	for (size_t i = 0; i < max_histograms_to_use; i++) {
 		#ifdef MAKE_YAML
 			Mat book_compare_rgb = imread(join(books_folder, format("%03d.jpg", i+1)));
@@ -129,7 +194,7 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 		
 
 		Mat frame_copy = frame.clone();
-		putText(frame_copy, "analyzing"+String((i%5)+1,'.'), Point(60, frame_copy.rows/2), FONT_HERSHEY_SIMPLEX, 2.5, Scalar(0, 255, 0, 0), 3);
+		putText(frame_copy, "analyzing"+String((i%5)+1,'.'), Point(60, frame_copy.rows/2), FONT_HERSHEY_SIMPLEX, 2.5, Scalar(0, 255, 0, 0), 5);
 		imshow(WINDOW_NAME, frame_copy);
 		waitKey(30);
 
@@ -157,8 +222,6 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 		descriptor_matcher->match(book_check_descriptors, book_test_descriptors, descriptor_matches); // save books' descriptor matches to descriptor_matches
 
 		sort(descriptor_matches.begin(), descriptor_matches.end(), compare_matches);
-		//double min_dist = descriptor_matches[0].distance;
-		//double max_dist = descriptor_matches[descriptor_matches.size() - 1].distance;
 
 		if (descriptor_matches.size() < 4) {
 			cerr << "At least four descriptor_matches required to compute homography.\n";
@@ -192,8 +255,7 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 	}
 
 	double time_seconds = ((double)getTickCount() - stopwatch_start) / getTickFrequency();
-	String result = (actualIdx == best_match_index) ? "----ok" : format("ER-%3d", actualIdx);
-	cout << result << " in " << format("%5.2f seconds", time_seconds) << format("   compared: %2d images", max_histograms_to_use) << endl;
+	cout << format("Recognition time: %5.2f seconds", time_seconds) << endl;
 
 	#ifdef MAKE_YAML
 		cerr << "Generating .yaml files done.\n";
@@ -209,6 +271,7 @@ size_t write_data(void *ptr, size_t size, size_t nmemb, FILE *stream) {
 	return written;
 }
 
+// this function uses network stream as camera source
 Mat capture_a_book(String phone_ip, String test_book_filename, int user_id) {
 	VideoCapture camera(phone_ip + "/video");
 
@@ -232,14 +295,14 @@ Mat capture_a_book(String phone_ip, String test_book_filename, int user_id) {
 	while (true) {
 		camera.read(frame);
 		frame = scale_frame(frame);
-		putText(frame, "press space to capture", Point(50,50), FONT_HERSHEY_SIMPLEX, 1.5, Scalar(255, 0, 0, 0), 2);
-		putText(frame, format("user: %s", users[user_id].c_str()), Point(50,(int)WINDOW_HEIGHT-50), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 0, 0, 0), 2);
+		putText(frame, "press space to capture", Point(50,50), FONT_HERSHEY_SIMPLEX, 1.5, Scalar(255, 0, 0, 0), 4);
+		putText(frame, format("user: %s", users[user_id].c_str()), Point(50,(int)WINDOW_HEIGHT-50), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 0, 0, 0), 4);
 		rectangle(frame, crop_area_scaled, Scalar(0, 255, 0, 0), 3); // draw a rectangle where the book has to be
 		imshow(WINDOW_NAME, frame);
 
 		char key = waitKey(30);
 		if (key == ' ') {// save the photo as {test_book_filename}
-			putText(frame, "saving...", Point(crop_area_scaled.x + 30, crop_area_scaled.y + crop_area_scaled.height/2), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(0, 0, 255, 0), 2);
+			putText(frame, "saving...", Point(crop_area_scaled.x + 30, crop_area_scaled.y + crop_area_scaled.height/2), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(0, 0, 255, 0), 4);
 			imshow(WINDOW_NAME, scale_frame(frame));
 			waitKey(30);
 
@@ -289,7 +352,7 @@ int select_user() {
 	Mat frame = scale_frame(background);
 	putText(frame, "Visual Librarian", Point(20, 150), FONT_HERSHEY_SIMPLEX, 2.8, Scalar(0, 255, 0, 0), 5);
 	rectangle(frame, Rect(40, 250, 400, 80 + users.size()*50), Scalar(255, 255, 255, 0), CV_FILLED);
-	putText(frame, "Select user:", Point(50, 300), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 255, 0, 0), 2);
+	putText(frame, "Select user:", Point(50, 300), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 255, 0, 0), 4);
 	int offset_y = 300;
 
 	int max_text_width = 0;
@@ -299,7 +362,7 @@ int select_user() {
 		String text = format("%d - %s", i, users[i].c_str());
 		int fontFace = FONT_HERSHEY_SIMPLEX;
 		double fontScale = 1;
-		int thickness = 2;
+		int thickness = 3;
 		int baseline = 0;
 
 		putText(frame, text, Point(50, offset_y), fontFace, fontScale, Scalar(255, 0, 0, 0), thickness);
@@ -330,53 +393,63 @@ int main(int argc, char** argv) {
 		
 		int user_id = select_user();
 		
-		String phone_ip = "http://192.168.43.1:8080";
-		String test_book_filename = "test.jpg";
+		String phone_ip = "http://192.168.43.1:8080"; // app used: http://ip-webcam.appspot.com/
+		String test_book_filename = "test_book.jpg";
 
 		Mat book_test_rgb = capture_a_book(phone_ip, test_book_filename, user_id);
 
 		imshow(WINDOW_NAME, scale_frame(book_test_rgb));
 		waitKey(30);
+
 		
-		/*
-		// FOR TESTING FURPOSES ONLY
-		for (size_t i = 1; i <= stoi(argv[2]); i++) {
-			Mat src_base = imread(format("C:\\Users\\Anze\\Box Sync\\FRI\\vid\\project\\zbirka2\\cropped_rotated_60_500px_3\\%03d.jpg", i));
-
-			if (src_base.empty()) {
-				cerr << "src_base is EMPTY\n";
-				throw;
-			}
-
-			find_the_book(argv[1], stoi(argv[2]), src_base, i);
-		}
-		break;
-		*/
-		
-		int book_detected_index = find_the_book(argv[1], stoi(argv[2]), book_test_rgb, -1);
-
+		// show detected book's title & ask borrow/return/cancel
+		int book_detected_index = find_the_book(argv[1], stoi(argv[2]), book_test_rgb);
 		Mat frame = scale_frame(book_test_rgb);
-		putText(frame, format("Detected book: %d", book_detected_index), Point(10, 50), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 2);
-		putText(frame, "o - OK",     Point(10, 100), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 255, 0, 0), 2);
-		putText(frame, "c - CANCEL", Point(10, 150), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 255, 0), 2);
+
+		putText(frame, format("Detected book:", book_detected_index),  Point(50, 50), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(0, 0, 0, 0), 5);
+		putText(frame, books_titles[book_detected_index][0],          Point(50, 100), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0, 0), 4);
+		putText(frame, books_titles[book_detected_index][1],          Point(50, 140), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 4);
+		putText(frame, "b - BORROW", Point(60, 200), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 255, 0, 0), 4);
+		putText(frame, "r - RETURN", Point(60, 250), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 255, 0, 0), 4);
+		putText(frame, "c - CANCEL", Point(60, 300), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 255, 0), 4);
+		putText(frame, format("user: %s", users[user_id].c_str()), Point(50, (int)WINDOW_HEIGHT - 50), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 0, 0, 0), 4);
+
 		imshow(WINDOW_NAME, frame);
 		char key = 0;
 		while (key = waitKey(0)) {
-			if (key == 'o' || key == 'c')
+			if (key == 'b' || key == 'r' || key == 'c')
 				break;
 		}
 		if (key == 'c')
 			continue;
 		
-		
-		frame = scale_frame(book_test_rgb);
-		putText(frame, users[user_id],                     Point(10, 50), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 2);
-		putText(frame, "borrowed",                        Point(10, 100), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 2);
-		putText(frame, format("%d", book_detected_index), Point(10, 150), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 2);
+		string borrow_or_return = (key == 'b') ? "borrowed" : "returned";
 
-		putText(frame, "Do you want to scan another book?", Point(10, 250), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 0, 0, 0), 2);
-		putText(frame, "y - YES", Point(10, 300), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 255, 0, 0), 2);
-		putText(frame, "n - NO",  Point(10, 350), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 255, 0), 2);
+
+		// log to file
+		time_t rawtime;
+		time(&rawtime);
+		string separator = "\t";
+		ofstream log_file("library_log.txt", ios_base::app);
+		log_file <<
+			users[user_id] << separator <<
+			borrow_or_return << separator <<
+			books_titles[book_detected_index][0] << " - " <<
+			books_titles[book_detected_index][1] << separator <<
+			ctime(&rawtime);
+		log_file.close();
+
+		
+		// show summary & ask to scan another book
+		frame = scale_frame(book_test_rgb);
+		putText(frame, users[user_id],                        Point(50, 50), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 4);
+		putText(frame, borrow_or_return,                     Point(50, 110), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(0, 0, 0, 0), 5);
+		putText(frame, books_titles[book_detected_index][0], Point(50, 160), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0, 0, 0), 4);
+		putText(frame, books_titles[book_detected_index][1], Point(50, 200), FONT_HERSHEY_SIMPLEX, 1.2, Scalar(255, 0, 0, 0), 4);
+		putText(frame, "Do you want to scan another book?",  Point(50, 300), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 0, 0, 0), 4);
+		putText(frame, "y - YES", Point(60, 350), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 255, 0, 0), 4);
+		putText(frame, "n - NO",  Point(60, 400), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 255, 0), 4);
+
 		imshow(WINDOW_NAME, frame);
 		key = 0;
 		while (key = waitKey(0)) {
