@@ -18,6 +18,7 @@ using namespace cv;
 
 #define WINDOW_NAME "Visual Librarian"
 #define WINDOW_HEIGHT 960.0
+//#define MAKE_YAML
 
 Mat scale_frame(Mat frame) {
 	double scaled_frame_factor = WINDOW_HEIGHT / frame.rows;
@@ -61,7 +62,7 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 	vector<KeyPoint> book_test_keypoints;
 	Ptr<Feature2D> descriptor = get_descriptor(FEATURES_SIFT);
 	descriptor->detectAndCompute(book_test_gs, Mat(), book_test_keypoints, book_test_descriptors);
-	int max_matches_to_use = 100;
+	int max_matches_to_use = 50;
 
 	int max_inliers = 0;
 	int best_match_index = -1;
@@ -75,8 +76,10 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 
 		Mat book_compare_hsv, book_compare_gs;
 		cvtColor(book_compare_rgb, book_compare_hsv, COLOR_BGR2HSV); // convert to HSV
-		cvtColor(book_compare_rgb, book_compare_gs, COLOR_BGR2GRAY); // convert to GRAYSCALE
-
+		#ifdef MAKE_YAML
+			cvtColor(book_compare_rgb, book_compare_gs, COLOR_BGR2GRAY); // convert to GRAYSCALE
+		#endif
+		
 		// calculate the histograms for the book_compare_hsv
 		Mat book_compare_hist;
 		calcHist(&book_compare_hsv, 1, channels, Mat(), book_compare_hist, 2, histSize, ranges, true, false);
@@ -90,17 +93,19 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 		if (i == actualIdx)
 			cout << hist_diff << endl;
 		*/
-		
+		#ifndef MAKE_YAML
 		// only compare books with histogram difference 0.5 or less
-		if (hist_diff > 0.5)
+		if (hist_diff > 0.5) {
 			continue;
-
+		}
+		#endif
+		
 		// HOMOGRAPHY
 		homography_count++; // number of books that were compared with homography
 
 		Mat frame_copy = frame.clone();
 		putText(frame_copy, "analyzing"+String((homography_count%5)+1,'.'), Point(60, frame_copy.rows/2), FONT_HERSHEY_SIMPLEX, 2.5, Scalar(0, 255, 0, 0), 3);
-		imshow(WINDOW_NAME, scale_frame(frame_copy));
+		imshow(WINDOW_NAME, frame_copy);
 		waitKey(30);
 
 		Mat book_check_descriptors;
@@ -108,23 +113,22 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 		vector<DMatch> descriptor_matches;
 		Ptr<DescriptorMatcher> descriptor_matcher = new BFMatcher();
 		
-		//descriptor->detectAndCompute(book_compare_gs, Mat(), book_check_keypoints, book_check_descriptors); // detect and compute book_check_keypoints and book_check_descriptors
+		#ifdef MAKE_YAML
+			descriptor->detectAndCompute(book_compare_gs, Mat(), book_check_keypoints, book_check_descriptors); // detect and compute book_check_keypoints and book_check_descriptors
 		
-		/*
-		// save book_check_keypoints and book_check_descriptors to {i}.yaml
-		// to use this code, you must comment out "if (hist_diff > 0.5)"
-		FileStorage fs(join(books_folder, format("%03d.yaml", i)) , FileStorage::WRITE);
-		fs << "book_check_keypoints" << book_check_keypoints;
-		fs << "book_check_descriptors" << book_check_descriptors;
-		fs.release();
-		*/
-		
-		// use book_check_keypoints and book_check_descriptors from {i}.yaml
-		FileStorage fs(join(books_folder, format("%03d.yaml", i)), FileStorage::READ);
-		fs["book_check_keypoints"] >> book_check_keypoints;
-		fs["book_check_descriptors"] >> book_check_descriptors;
-		fs.release();
-		
+			// save book_check_keypoints and book_check_descriptors to {i}.yaml
+			// to use this code, you must comment out "if (hist_diff > 0.5)"
+			FileStorage fs(join(books_folder, format("%03d.yaml", i)), FileStorage::WRITE);
+			fs << "book_check_keypoints" << book_check_keypoints;
+			fs << "book_check_descriptors" << book_check_descriptors;
+			fs.release();
+		#else
+			// use book_check_keypoints and book_check_descriptors from {i}.yaml
+			FileStorage fs(join(books_folder, format("%03d.yaml", i)), FileStorage::READ);
+			fs["book_check_keypoints"] >> book_check_keypoints;
+			fs["book_check_descriptors"] >> book_check_descriptors;
+			fs.release();
+		#endif
 
 		descriptor_matcher->match(book_check_descriptors, book_test_descriptors, descriptor_matches); // save books' descriptor matches to descriptor_matches
 
@@ -170,6 +174,11 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb, int 
 	// DELETE ME
 	String result = (actualIdx == best_match_index) ? "----ok" : format("ER-%3d", actualIdx);
 	cout << result << " in " << format("%5.2f seconds", time_seconds) << format("   compared: %2d images", homography_count) << endl;
+
+	#ifdef MAKE_YAML
+		cerr << "Generating .yaml files done.\n";
+		throw;
+	#endif
 
 	return best_match_index;
 }
@@ -291,14 +300,14 @@ int select_user() {
 
 
 int main(int argc, char** argv) {
-	if (argc < 4) {
+	if (argc < 3) {
 		cerr << "** Error. Usage: ./visual_librarian <books_folder> <number_of_books>\n";
 		throw;
 	}
 
 	while (true) {
+		/*
 		int user_id = select_user();
-
 		
 		String phone_ip = "http://192.168.43.1:8080";
 		String test_book_filename = "test.jpg";
@@ -307,10 +316,11 @@ int main(int argc, char** argv) {
 
 		imshow(WINDOW_NAME, scale_frame(book_test_rgb));
 		waitKey(30);
-		
-		/*
-		for (size_t i = 1; i <= 81; i++) {
-			Mat src_base = imread(format("C:\\Users\\Anze\\Box Sync\\FRI\\vid\\project\\zbirka1\\auto_all renamed+resized_only1_testing\\%03d.jpg", i));
+		*/
+
+		// FOR TESTING FURPOSES ONLY
+		for (size_t i = 1; i <= stoi(argv[2]); i++) {
+			Mat src_base = imread(format("C:\\Users\\Anze\\Box Sync\\FRI\\vid\\project\\zbirka2\\cropped_rotated_60_500px_3\\%03d.jpg", i));
 
 			if (src_base.empty()) {
 				cerr << "src_base is EMPTY\n";
@@ -319,8 +329,9 @@ int main(int argc, char** argv) {
 
 			find_the_book(argv[1], stoi(argv[2]), src_base, i);
 		}
-		*/
+		break;
 		
+		/*
 		int book_detected_index = find_the_book(argv[1], stoi(argv[2]), book_test_rgb, -1);
 
 		Mat frame = scale_frame(book_test_rgb);
@@ -353,7 +364,7 @@ int main(int argc, char** argv) {
 		}
 		if (key == 'n')
 			break;
-				
+		*/
 	}
 	return 0;
 }
