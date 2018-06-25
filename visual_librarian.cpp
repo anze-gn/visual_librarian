@@ -20,8 +20,6 @@ using namespace cv;
 
 #define WINDOW_NAME "Visual Librarian"
 #define WINDOW_HEIGHT 960.0
-//#define MAKE_YAML
-
 
 
 vector<String> users = {
@@ -113,6 +111,30 @@ bool compare_histograms(vector<double> histogram_diffs_vector1, vector<double> h
 	return (histogram_diffs_vector1[1] < histogram_diffs_vector2[1]);
 }
 
+void generate_yaml(String books_folder, int num_of_books) {
+	for (size_t i = 1; i <= num_of_books; i++) {
+		Mat book_compare_rgb = imread(join(books_folder, format("%03d.jpg", i)));
+		if (book_compare_rgb.empty()) {
+			cerr << "book_compare_rgb is EMPTY\n";
+			throw;
+		}
+
+		Mat book_compare_gs;
+		cvtColor(book_compare_rgb, book_compare_gs, COLOR_BGR2GRAY); // convert to GRAYSCALE
+
+		Mat book_check_descriptors;
+		vector<KeyPoint> book_check_keypoints;
+		Ptr<Feature2D> descriptor = get_descriptor(FEATURES_SIFT);
+
+		descriptor->detectAndCompute(book_compare_gs, Mat(), book_check_keypoints, book_check_descriptors); // detect and compute book_check_keypoints and book_check_descriptors
+
+		// save book_check_keypoints and book_check_descriptors to {i}.yaml
+		FileStorage fs(join(books_folder, format("%03d.yaml", i)), FileStorage::WRITE);
+		fs << "book_check_keypoints" << book_check_keypoints;
+		fs << "book_check_descriptors" << book_check_descriptors;
+		fs.release();
+	}
+}
 
 int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb) {
 	double stopwatch_start = (double)getTickCount(); // start the stopwatch
@@ -174,24 +196,10 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb) {
 	descriptor->detectAndCompute(book_test_gs, Mat(), book_test_keypoints, book_test_descriptors);
 	int max_matches_to_use = 100;
 	int max_histograms_to_use = 5;
-	#ifdef MAKE_YAML
-		max_histograms_to_use = num_of_books;
-	#endif
 
 	int max_inliers = 0;
 	int best_match_index = 0;
-	for (size_t i = 0; i < max_histograms_to_use; i++) {
-		#ifdef MAKE_YAML
-			Mat book_compare_rgb = imread(join(books_folder, format("%03d.jpg", i+1)));
-			if (book_compare_rgb.empty()) {
-				cerr << "book_compare_rgb is EMPTY\n";
-				throw;
-			}
-
-			Mat book_compare_gs;
-			cvtColor(book_compare_rgb, book_compare_gs, COLOR_BGR2GRAY); // convert to GRAYSCALE
-		#endif
-		
+	for (size_t i = 0; i < max_histograms_to_use; i++) {		
 
 		Mat frame_copy = frame.clone();
 		putText(frame_copy, "analyzing"+String((i%5)+1,'.'), Point(60, frame_copy.rows/2), FONT_HERSHEY_SIMPLEX, 2.5, Scalar(0, 255, 0, 0), 5);
@@ -203,21 +211,11 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb) {
 		vector<DMatch> descriptor_matches;
 		Ptr<DescriptorMatcher> descriptor_matcher = new BFMatcher();
 		
-		#ifdef MAKE_YAML
-			descriptor->detectAndCompute(book_compare_gs, Mat(), book_check_keypoints, book_check_descriptors); // detect and compute book_check_keypoints and book_check_descriptors
-		
-			// save book_check_keypoints and book_check_descriptors to {i+1}.yaml
-			FileStorage fs(join(books_folder, format("%03d.yaml", i+1)), FileStorage::WRITE);
-			fs << "book_check_keypoints" << book_check_keypoints;
-			fs << "book_check_descriptors" << book_check_descriptors;
-			fs.release();
-		#else
-			// use book_check_keypoints and book_check_descriptors from .yaml file
-			FileStorage fs(join(books_folder, format("%03d.yaml", (int)histogram_diffs[i][0])), FileStorage::READ);
-			fs["book_check_keypoints"] >> book_check_keypoints;
-			fs["book_check_descriptors"] >> book_check_descriptors;
-			fs.release();
-		#endif
+		// use book_check_keypoints and book_check_descriptors from .yaml file
+		FileStorage fs(join(books_folder, format("%03d.yaml", (int)histogram_diffs[i][0])), FileStorage::READ);
+		fs["book_check_keypoints"] >> book_check_keypoints;
+		fs["book_check_descriptors"] >> book_check_descriptors;
+		fs.release();
 
 		descriptor_matcher->match(book_check_descriptors, book_test_descriptors, descriptor_matches); // save books' descriptor matches to descriptor_matches
 
@@ -256,11 +254,6 @@ int find_the_book(String books_folder, int num_of_books, Mat book_test_rgb) {
 
 	double time_seconds = ((double)getTickCount() - stopwatch_start) / getTickFrequency();
 	cout << format("Recognition time: %5.2f seconds", time_seconds) << endl;
-
-	#ifdef MAKE_YAML
-		cerr << "Generating .yaml files done.\n";
-		throw;
-	#endif
 
 	return best_match_index;
 }
@@ -384,8 +377,13 @@ int select_user() {
 
 
 int main(int argc, char** argv) {
+	if (argc >= 4 && string("yaml").compare(string(argv[1])) == 0) {
+		generate_yaml(argv[2], stoi(argv[3]));
+		return 0;
+	}
+
 	if (argc < 3) {
-		cerr << "** Error. Usage: ./visual_librarian <books_folder> <number_of_books>\n";
+		cerr << "** Error. Usage: ./visual_librarian <books_folder> <number_of_books>\n OR ./visual_librarian yaml <books_folder>";
 		throw;
 	}
 
