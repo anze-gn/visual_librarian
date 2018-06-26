@@ -96,10 +96,8 @@ vector<vector<String>> books_titles = {
 
 
 Mat scale_frame(Mat frame) {
-	double scaled_frame_factor = WINDOW_HEIGHT / frame.rows;
-
 	Mat scaled_frame;
-	resize(frame, scaled_frame, Size(0,0), scaled_frame_factor, scaled_frame_factor, INTER_LINEAR);
+	resize(frame, scaled_frame, Size((int)WINDOW_HEIGHT*3/4, WINDOW_HEIGHT), 0, 0, INTER_LINEAR);
 	return scaled_frame;
 }
 
